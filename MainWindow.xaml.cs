@@ -3,7 +3,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Media;
 using System.Text;
+using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -70,17 +72,49 @@ namespace MultiMonitor
             {
                 // Clear existing data
                 _currentTags.Clear();
-                _currentTemplates.Clear();
+                _currentTemplates.Clear();                // Run the script with --preview argument
+                // Find the project root directory by looking for the embedded Python
+                var currentDir = AppDomain.CurrentDomain.BaseDirectory;
+                string pythonExe = null;
+                
+                // Try to find python.exe in various locations
+                var possiblePaths = new[]
+                {
+                    // For development environment - look in source directory
+                    Path.Combine(Directory.GetParent(currentDir)?.Parent?.Parent?.Parent?.FullName ?? "", "python", "python.exe"),
+                    // For published app - look relative to executable
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "python", "python.exe"),
+                    // For development debugging - look in project output
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "python", "python.exe")
+                };
+                
+                foreach (var path in possiblePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        pythonExe = path;
+                        break;
+                    }
+                }
+                  if (pythonExe == null)
+                {
+                    throw new FileNotFoundException("Python executable not found. Please ensure python.exe is available in the python folder.");
+                }
 
-                // Run the script with --preview argument
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = "python", // Ensure Python is accessible
+                    FileName = pythonExe,
                     Arguments = $"\"{_currentScript.FilePath}\" --preview",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
-                    CreateNoWindow = true
+                    CreateNoWindow = true,
+                    // Set environment variables for the Python subprocess
+                    EnvironmentVariables = 
+                    {
+                        ["PYTHONPATH"] = Path.GetDirectoryName(pythonExe),
+                        ["PYTHONHOME"] = Path.GetDirectoryName(pythonExe)
+                    }
                 };
 
                 using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
@@ -139,7 +173,6 @@ namespace MultiMonitor
                 Debug.WriteLine($"Exception: {ex}");
             }
         }
-
         private void ProcessPreviewOutput(string output)
         {
             try
@@ -207,13 +240,28 @@ namespace MultiMonitor
             }
         }
 
-            private void RefreshScriptsComboBox()
+        private void RefreshScriptsComboBox()
         {
+            // Remember the current selection index
+            int selectedIndex = ScriptsComboBox.SelectedIndex;
+
+            // Update the items without triggering selection events
+            ScriptsComboBox.SelectionChanged -= ScriptsComboBox_SelectionChanged;
+
             ScriptsComboBox.Items.Clear();
             foreach (var script in _availableScripts)
             {
                 ScriptsComboBox.Items.Add(script.DisplayName);
             }
+
+            // Restore the selection if it was valid
+            if (selectedIndex >= 0 && selectedIndex < ScriptsComboBox.Items.Count)
+            {
+                ScriptsComboBox.SelectedIndex = selectedIndex;
+            }
+
+            // Reattach the event handler
+            ScriptsComboBox.SelectionChanged += ScriptsComboBox_SelectionChanged;
         }
 
         private Dictionary<string, string> LoadDisplayNames()
@@ -393,7 +441,7 @@ namespace MultiMonitor
                         else
                         {
                             tagButton.Content = tag.Name;
-                            tagButton.Background = new SolidColorBrush(Colors.LightGray);
+                            tagButton.Background = new SolidColorBrush(Colors.DarkGray);
                         }
                     };
 
@@ -489,130 +537,167 @@ namespace MultiMonitor
         }
 
         private async Task RunScriptAsync()
+{
+    if (_currentScript == null) return;
+
+    // If a process is already running, stop it
+    if (_runningProcess != null)
+    {
+        try
         {
-            if (_currentScript == null) return;
-
-            // If a process is already running, stop it
-            if (_runningProcess != null)
+            if (!_runningProcess.HasExited)
             {
-                try
-                {
-                    if (_runningProcess == null || _runningProcess.HasExited)
-                    {
-                        UpdateStatus("No running process to stop.");
-                        RunButton.Content = "Run";
-                        return;
-                    }
-
-                    _runningProcess.Kill(); // Terminate the process
-                    await _runningProcess.WaitForExitAsync(); // Ensure it exits completely
-                }
-                catch (InvalidOperationException)
-                {
-                    // Process might have already exited, ignore this exception
-                }
-                catch (Exception ex)
-                {
-                    UpdateStatus($"Error stopping process: {ex.Message}");
-                }
-                finally
-                {
-                    CleanupRunningProcess();
-                }
-
-                RunButton.Content = "Run";
-                UpdateStatus("Script stopped");
-                return;
+                _runningProcess.Kill();
+                await _runningProcess.WaitForExitAsync();
             }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus($"Error stopping process: {ex.Message}");
+        }
+        finally
+        {
+            CleanupRunningProcess();
+        }
 
-            UpdateStatus($"Running {_currentScript.DisplayName}...");
-            RunButton.Content = "Stop";
+        RunButton.Content = "Run";
+        UpdateStatus("Script stopped");
+        return;
+    }
 
-            try
+    UpdateStatus($"Running {_currentScript.DisplayName}...");
+    RunButton.Content = "Stop";
+
+    try
+    {
+        // Find Python executable
+        var currentDir = AppDomain.CurrentDomain.BaseDirectory;
+        string pythonExe = null;
+        
+        var possiblePaths = new[]
+        {
+            Path.Combine(Directory.GetParent(currentDir)?.Parent?.Parent?.Parent?.FullName ?? "", "python", "python.exe"),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "python", "python.exe"),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "python", "python.exe")
+        };
+        
+        foreach (var path in possiblePaths)
+        {
+            if (File.Exists(path))
             {
-                // Prepare the templates with the edited sentences
-                var formattedTemplates = _currentTemplates.Select(t => t.FormattedText).ToList();
+                pythonExe = path;
+                break;
+            }
+        }
+        
+        if (pythonExe == null)
+        {
+            UpdateStatus("Python executable not found. Please ensure python.exe is available in the python folder.");
+            RunButton.Content = "Run";
+            return;
+        }
 
-                // Optionally, save the formatted templates to a temporary file or pass them as arguments
-                string tempFilePath = Path.Combine(Path.GetTempPath(), "formatted_templates.json");
-                File.WriteAllText(tempFilePath, JsonSerializer.Serialize(formattedTemplates));
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = pythonExe,
+            Arguments = $"-u \"{_currentScript.FilePath}\"", // Remove the template file argument for now
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            // Add timeout environment variable
+            EnvironmentVariables = 
+            {
+                ["PYTHONPATH"] = Path.GetDirectoryName(pythonExe) ?? "",
+                ["PYTHONHOME"] = Path.GetDirectoryName(pythonExe) ?? "",
+                ["PYTHONUNBUFFERED"] = "1" // Ensure immediate output
+            }
+        };
 
-                // Configure the process to read real-time output
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "python",
-                    Arguments = $"-u \"{_currentScript.FilePath}\" \"{tempFilePath}\"", // Pass the formatted templates file as an argument
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
+        _runningProcess = new Process
+        {
+            StartInfo = startInfo,
+            EnableRaisingEvents = true
+        };
 
-                _runningProcess = new Process
-                {
-                    StartInfo = startInfo,
-                    EnableRaisingEvents = true
-                };
-
-                // Handle real-time output
-                _runningProcess.OutputDataReceived += (sender, e) =>
-                {
-                    if (!string.IsNullOrEmpty(e.Data))
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            if (IsJson(e.Data))
-                            {
-                                ProcessScriptOutput(e.Data); // Process JSON for placeholders
-                            }
-                            else
-                            {
-                                UpdateStatus(e.Data); // Display plain text output
-                            }
-                        });
-                    }
-                };
-
-                // Handle real-time error output
-                _runningProcess.ErrorDataReceived += (sender, e) =>
-                {
-                    if (!string.IsNullOrEmpty(e.Data))
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            UpdateStatus($"Error: {e.Data}");
-                        });
-                    }
-                };
-
-                // Start the process and begin reading output
-                _runningProcess.Start();
-                _runningProcess.BeginOutputReadLine();
-                _runningProcess.BeginErrorReadLine();
-
-                // Wait for the process to exit
-                await Task.Run(() => _runningProcess.WaitForExit());
-
+        // Handle real-time output
+        _runningProcess.OutputDataReceived += (sender, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+            {
                 Dispatcher.Invoke(() =>
                 {
-                    RunButton.Content = "Run";
-                    if (_runningProcess != null)
+                    Debug.WriteLine($"Python Output: {e.Data}");
+                    
+                    if (IsJson(e.Data))
                     {
+                        ProcessScriptOutput(e.Data);
                     }
                     else
                     {
-                        UpdateStatus("Script stopped");
+                        UpdateStatus(e.Data);
                     }
-                    CleanupRunningProcess();
                 });
             }
-            catch (Exception ex)
+        };
+
+        // Handle real-time error output
+        _runningProcess.ErrorDataReceived += (sender, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
             {
-                RunButton.Content = "Run";
-                UpdateStatus($"Error: {ex.Message}");
-                CleanupRunningProcess();
+                Dispatcher.Invoke(() =>
+                {
+                    Debug.WriteLine($"Python Error: {e.Data}");
+                    UpdateStatus($"Error: {e.Data}");
+                });
             }
+        };
+
+        // Set up a timeout
+        var timeoutTask = Task.Delay(TimeSpan.FromMinutes(5)); // 5 minute timeout
+
+        _runningProcess.Start();
+        _runningProcess.BeginOutputReadLine();
+        _runningProcess.BeginErrorReadLine();
+
+        // Wait for either the process to exit or timeout
+        var processTask = Task.Run(() => _runningProcess.WaitForExit());
+        var completedTask = await Task.WhenAny(processTask, timeoutTask);
+
+        if (completedTask == timeoutTask)
+        {
+            // Timeout occurred
+            UpdateStatus("Script timeout - stopping process");
+            try
+            {
+                _runningProcess.Kill();
+                await _runningProcess.WaitForExitAsync();
+            }
+            catch { }
         }
+
+        Dispatcher.Invoke(() =>
+        {
+            RunButton.Content = "Run";
+            if (_runningProcess?.ExitCode == 0)
+            {
+                UpdateStatus("Script completed successfully");
+            }
+            else
+            {
+                UpdateStatus($"Script completed with exit code: {_runningProcess?.ExitCode}");
+            }
+            CleanupRunningProcess();
+        });
+    }
+    catch (Exception ex)
+    {
+        RunButton.Content = "Run";
+        UpdateStatus($"Error: {ex.Message}");
+        CleanupRunningProcess();
+    }
+}
 
         private void CleanupRunningProcess()
         {
@@ -672,8 +757,13 @@ namespace MultiMonitor
                 // Play the bell sound after updating the templates
                 Dispatcher.Invoke(() =>
                 {
-                    var player = new System.Media.SoundPlayer("bell.wav");
-                    player.Play();
+                    var assembly = Assembly.GetExecutingAssembly();
+                    using Stream stream = assembly.GetManifestResourceStream("MultiMonitor.bell.wav");
+                    if (stream != null)
+                    {
+                        using var player = new SoundPlayer(stream);
+                        player.Play();
+                    }
                 });
             }
             catch (JsonException ex)
