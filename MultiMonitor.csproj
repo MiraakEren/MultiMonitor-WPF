@@ -15,7 +15,9 @@
 
   <ItemGroup>
     <None Remove="bell.wav" />
+    <None Remove="copy_button.png" />
     <None Remove="icon.ico" />
+    <None Remove="reset_single.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,7 +25,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="copy_button.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="icon.ico" />
+    <Resource Include="reset_single.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
   <!-- Include the entire python folder and preserve directory structure -->
