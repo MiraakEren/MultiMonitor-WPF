@@ -16,6 +16,7 @@ using System.Windows.Interop;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Windows.Navigation;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace MultiMonitor
 {
@@ -72,8 +73,8 @@ namespace MultiMonitor
             Title = "MultiMonitor";
             DataContext = this; // Set the DataContext for binding
 
-            MonitorUrl = "Not Monitoring";
-            FoundUrl = "https://example.com/";
+            MonitorUrl = "";
+            FoundUrl = "";
 
             // Initialize App Data Folders
             _scriptsDirectory = Path.Combine(
@@ -132,11 +133,12 @@ namespace MultiMonitor
         {
             if (_currentScript != null)
             {
+                MonitorUrlTextBox.Text = "";
+                FoundUrlTextBox.Text = "";
                 await RunScriptWithPreviewAsync(); // Only reset the UI and run the preview
                 UpdateStatus("Reset to preview state");
             }
-            MonitorUrlTextBox.Text = "Not Monitoring"; // Reset monitor URL
-            FoundUrlTextBox.Text = "";
+
         }
 
         private async Task RunScriptWithPreviewAsync()
@@ -192,7 +194,6 @@ namespace MultiMonitor
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true,
-                    // Set environment variables for the Python subprocess
                     EnvironmentVariables = 
                     {
                         ["PYTHONPATH"] = Path.GetDirectoryName(pythonExe),
@@ -257,7 +258,68 @@ namespace MultiMonitor
             }
         }
         
-        private TextBox? _argumentTextBox;
+        private Dictionary<string, TextBox> _argumentFields = new();
+        private void AddArgumentField(string argName, string placeholder = "")
+        {
+            if (_argumentFields.ContainsKey(argName))
+                return;
+
+            // Ensure ArgumentsPanel has two rows
+            if (ArgumentsPanel.RowDefinitions.Count < 2)
+            {
+                ArgumentsPanel.RowDefinitions.Clear();
+                ArgumentsPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Labels
+                ArgumentsPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // TextBoxes
+            }
+
+            // Add a new column for this argument
+            int colIndex = ArgumentsPanel.ColumnDefinitions.Count;
+            ArgumentsPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // Create label
+            var label = new Label
+            {
+                Content = argName,
+                Padding = new Thickness(0, 0, 0, 0),
+                Margin = new Thickness(0, 0, 0, 0),
+                FontSize = 10,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                ToolTip = placeholder
+            };
+            Grid.SetRow(label, 0);
+            Grid.SetColumn(label, colIndex);
+
+            // Create textbox
+            var textBox = new TextBox
+            {
+                Tag = argName,
+                Width = 120,
+                Foreground = Brushes.Gray,
+                Padding = new Thickness(2),
+            };
+            textBox.GotFocus += (s, e) =>
+            {
+                if (textBox.Text == placeholder)
+                {
+                    textBox.Text = "";
+                    textBox.Foreground = Brushes.Black;
+                }
+            };
+            textBox.LostFocus += (s, e) =>
+            {
+                if (string.IsNullOrWhiteSpace(textBox.Text))
+                {
+                    textBox.Text = placeholder;
+                    textBox.Foreground = Brushes.Gray;
+                }
+            };
+            Grid.SetRow(textBox, 1);
+            Grid.SetColumn(textBox, colIndex);
+
+            ArgumentsPanel.Children.Add(label);
+            ArgumentsPanel.Children.Add(textBox);
+            _argumentFields[argName] = textBox;
+        }
 
         private void ProcessPreviewOutput(string output)
         {
@@ -274,7 +336,7 @@ namespace MultiMonitor
                         _currentScript.DisplayName = displayNameProp.GetString() ?? _currentScript.DisplayName;
                     }
                 }
-                
+
                 // Refresh the dropdown menu to reflect the updated display_name
                 RefreshScriptsComboBox();
 
@@ -291,7 +353,6 @@ namespace MultiMonitor
                             else if (scriptTypeProp.GetString() == "stream")
                             {
                                 _currentScript.DisplayName += " (Stream)";
-                                AddArgumentTextBox();
                             }
 
                             else if (scriptTypeProp.ValueKind == JsonValueKind.Number)
@@ -351,40 +412,31 @@ namespace MultiMonitor
                         Debug.WriteLine($"MonitorUrl set to: {monitorUrl}");
                     }
                 }
+
+                // Clear previous argument fields
+                ArgumentsPanel.Children.Clear();
+                _argumentFields.Clear();
+
+                // Add dynamic argument fields from "fields" in JSON
+                if (root.TryGetProperty("fields", out var fieldsProp) && fieldsProp.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var field in fieldsProp.EnumerateArray())
+                    {
+                        string name = field.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? "" : "";
+                        string tip = field.TryGetProperty("tip", out var tipProp) ? tipProp.GetString() ?? "" : "";
+
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            AddArgumentField(name, tip);
+                        }
+                    }
+                }
             }
             catch (JsonException ex)
             {
                 UpdateStatus($"Error parsing JSON: {ex.Message}");
             }
-        }
-
-        private void AddArgumentTextBox()
-        {
-            if (ArgumentTextBox != null)
-            {
-                ArgumentTextBox.IsEnabled = true; // Enable the TextBox
-                ArgumentTextBox.Focus(); // Set focus to the TextBox
-            }
-        }
-
-        private void ArgumentTextBox_GotFocus(object sender, RoutedEventArgs e)
-        {
-            if (ArgumentTextBox.Text == "Enter arguments here...")
-            {
-                ArgumentTextBox.Text = string.Empty;
-                ArgumentTextBox.Foreground = Brushes.Black; // Reset text color
-            }
-        }
-
-        private void ArgumentTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(ArgumentTextBox.Text))
-            {
-                ArgumentTextBox.Text = "Enter arguments here...";
-                ArgumentTextBox.Foreground = Brushes.Gray; // Restore placeholder color
-            }
-        }
-        
+        }        
 
         private void RefreshScriptsComboBox()
         {
@@ -658,9 +710,13 @@ namespace MultiMonitor
             {
                 _currentScript = _availableScripts[ScriptsComboBox.SelectedIndex];
                 Title = $"MultiMonitor - {_currentScript.DisplayName}";
-
+                ArgumentsPanel.Children.Clear();
+                _argumentFields.Clear();
+                MonitorUrlTextBox.Text = "";
+                FoundUrlTextBox.Text = "";
                 // Automatically trigger --preview run
                 await RunScriptWithPreviewAsync();
+                
             }
         }
 
@@ -668,7 +724,20 @@ namespace MultiMonitor
         {
             if (_currentScript != null)
             {
-                _ = RunScriptAsync(); // Trigger the RunScriptAsync function
+                foreach (var kvp in _argumentFields)
+                {
+                    string argName = kvp.Key;
+                    string argValue = kvp.Value.Text;
+                    if (!string.IsNullOrWhiteSpace(argValue) && argValue != kvp.Value.Tag?.ToString())
+                    {
+                        Debug.WriteLine($"Argument: --{argName} \"{argValue}\"");
+                    }
+                    kvp.Value.IsReadOnly = true;
+                }
+                ScriptsComboBox.IsEnabled = false;
+                ResetButton.IsEnabled = false;
+                ResetButton.Background = Brushes.LightGray;
+                _ = RunScriptAsync();
             }
             else
             {
@@ -680,6 +749,37 @@ namespace MultiMonitor
         {
             StatusTextBlock.Text = $"[{DateTime.Now:HH:mm:ss}] {message}";
             Debug.WriteLine($"Status updated: {message}");
+        }
+
+        private void MonitorAddressPanel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+                OpenUrlIfValid(MonitorUrlTextBox.Text);
+        }
+
+        private void FoundAddressPanel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+                OpenUrlIfValid(FoundUrlTextBox.Text);
+        }
+
+        private void OpenUrlIfValid(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return;
+
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uriResult) &&
+                (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo(uriResult.AbsoluteUri) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to open URL: {ex.Message}");
+                }
+            }
         }
 
         private async Task RunScriptAsync()
@@ -710,6 +810,9 @@ namespace MultiMonitor
                 Title = "MultiMonitor"; // Reset the window title
                 if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
                 UpdateStatus("Script stopped");
+                ScriptsComboBox.IsEnabled = true;
+                ResetButton.IsEnabled = true;
+                ResetButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E57373"));
                 return;
             }
 
@@ -748,13 +851,25 @@ namespace MultiMonitor
                     RunButton.Content = "Run";
                     Title = "MultiMonitor"; // Reset the window title
                     if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
+                    ScriptsComboBox.IsEnabled = true;
                     return;
                 }
+
+                var argList = new List<string>();
+                foreach (var kvp in _argumentFields)
+                {
+                    var value = kvp.Value.Text;
+                    if (!string.IsNullOrWhiteSpace(value) && value != kvp.Value.Tag?.ToString())
+                    {
+                        argList.Add($"--{kvp.Key} \"{value}\"");
+                    }
+                }
+                var arguments = $"-u \"{_currentScript.FilePath}\" {string.Join(" ", argList)}";
 
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = pythonExe,
-                    Arguments = $"-u \"{_currentScript.FilePath}\"", // Remove the template file argument for now
+                    Arguments = arguments,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -835,6 +950,11 @@ namespace MultiMonitor
                 {
                     RunButton.Content = "Run";
                     Title = "MultiMonitor"; // Reset the window title
+                    ResetButton.IsEnabled = true;
+                    ResetButton.Background = new SolidColorBrush(Color.FromRgb(229, 115, 115)); // #E57373
+                    foreach (var tb in _argumentFields.Values)
+                        tb.IsReadOnly = false;
+                    RunButton.Content = "Run";
                     if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
                     if (_runningProcess?.ExitCode == 0)
                     {

@@ -4,179 +4,184 @@
     xmlns:local="clr-namespace:MultiMonitor"
     Title="MultiMonitor" Height="600" Width="800" Background="White"
     Icon="icon.ico">
-    <Grid>
-        <StackPanel x:Name="MainPanel" Orientation="Vertical">
-            <Grid x:Name="MainGrid" Margin="10" Height="569">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/> 
-                    <RowDefinition Height="Auto"/> 
-                    <RowDefinition Height="Auto"/> 
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+    <DockPanel LastChildFill="True">
+        <!-- Status Bar at the bottom -->
+        <Border DockPanel.Dock="Bottom" Background="#FAFAFA" BorderThickness="1,1,1,0" BorderBrush="#E0E0E0">
+            <TextBlock x:Name="StatusTextBlock" Text="Ready" HorizontalAlignment="Left" VerticalAlignment="Center" Foreground="#757575" Margin="10,2,0,2"/>
+        </Border>
+        <!-- Main Content -->
+        <Grid x:Name="MainGrid" Margin="10, 10, 10, 10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/> 
+                <RowDefinition Height="Auto"/> 
+                <RowDefinition Height="Auto"/> 
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-                <!-- Row 1: Import, Dropdown, Run, Reset buttons -->
-                <Grid Grid.Row="0" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+            <!-- Row 1: Import, Dropdown, Run, Reset buttons -->
+            <Grid Grid.Row="0" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-                    <Button x:Name="ImportButton" Grid.Column="0" Content="Import" Click="ImportButton_Click" Margin="0,0,10,0" Background="#E0E0E0" Foreground="#333" Padding="20,0,20,0" RenderTransformOrigin="0.5,0.5" Grid.IsSharedSizeScope="True" ScrollViewer.CanContentScroll="True"/>
-                    <ComboBox x:Name="ScriptsComboBox" Grid.Column="1"
-                        SelectionChanged="ScriptsComboBox_SelectionChanged" HorizontalAlignment="Stretch" Margin="0,0,10,0" Background="#FFFFFF" Foreground="#333" BorderBrush="#CCCCCC" BorderThickness="1" Padding="2" SnapsToDevicePixels="True" />
-                    <Button x:Name="RunButton" Grid.Column="2" Content="Run" Click="RunButton_Click" Margin="0,0,10,0" Background="#4CAF50" Foreground="#FFFFFF" Padding="5,2"/>
-                    <Button x:Name="ResetButton" Grid.Column="3" Content="Reset" Click="ResetButton_Click" Background="#E57373" Foreground="#FFFFFF" Padding="5,2"/>
-                </Grid>
+                <Button x:Name="ImportButton" Grid.Column="0" Content="Import" Click="ImportButton_Click" Margin="0,0,10,0" Background="#E0E0E0" Foreground="#333" Padding="20,0,20,0" RenderTransformOrigin="0.5,0.5" Grid.IsSharedSizeScope="True" ScrollViewer.CanContentScroll="True"/>
+                <ComboBox x:Name="ScriptsComboBox" Grid.Column="1"
+                    SelectionChanged="ScriptsComboBox_SelectionChanged" HorizontalAlignment="Stretch" Margin="0,0,10,0" Background="#FFFFFF" Foreground="#333" BorderBrush="#CCCCCC" BorderThickness="1" Padding="2" SnapsToDevicePixels="True" />
+                <Button x:Name="RunButton" Grid.Column="2" Content="Run" Click="RunButton_Click" Margin="0,0,10,0" Background="#4CAF50" Foreground="#FFFFFF" Padding="5,2"/>
+                <Button x:Name="ResetButton" Grid.Column="3" Content="Reset" Click="ResetButton_Click" Background="#E57373" Foreground="#FFFFFF" Padding="5,2"/>
+            </Grid>
 
-                <!-- Row 2: Tags Panel -->
-                <Border Grid.Row="1" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Background="#FFFFFF">
-                    <StackPanel>
-                        <ItemsControl x:Name="TagsRepeater">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="#BDBDBD" BorderThickness="1" Padding="5" Margin="2" Background="#E0E0E0">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding Name}" Foreground="#333" FontWeight="Normal"
-                                                MouseEnter="TagTextBlock_MouseEnter" MouseLeftButtonDown="TagTextBlock_Click"/>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-
-                <!-- Row 3: Add Template Sentence Button and Argument TextBox -->
-                <Grid Grid.Row="2" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="141*"/>
-                        <ColumnDefinition Width="560*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Add Blank Button -->
-                    <Button x:Name="AddBlankButton" Content="Add Blank" HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Click="AddTemplateSentenceButton_Click" Background="#2196F3" Foreground="#FFFFFF" Padding="5,2" />
-
-                    <!-- Argument TextBox -->
-                    <TextBox x:Name="ArgumentTextBox" Grid.Column="1" Text="Enter arguments here..." Margin="10,0,0,0" VerticalAlignment="Center" Foreground="Gray" IsEnabled="False"
-                        GotFocus="ArgumentTextBox_GotFocus" LostFocus="ArgumentTextBox_LostFocus" Grid.ColumnSpan="2" />
-                </Grid>
-
-                <!-- Row 4: Monitor address -->
-                <Border Grid.Row="3" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Background="#F5F5F5" Padding="5">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- Icon -->
-                        <Image Source="pack://application:,,,/monitor_icon.png" Width="16" Height="16" Margin="0,0,5,0" />
-                        <!-- Readonly TextBox -->
-                        <TextBox x:Name="MonitorUrlTextBox"
-                                IsReadOnly="True"
-                                BorderThickness="0"
-                                Background="Transparent"
-                                Foreground="#1976D2"
-                                Padding="5,0,0,0"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- Row 5: Found address -->
-                <Border Grid.Row="4" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Background="#F5F5F5" Padding="5">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- Icon -->
-                        <Image Source="pack://application:,,,/found_icon.png" Width="16" Height="16" Margin="0,0,5,0" />
-                        <!-- Readonly TextBox -->
-                        <TextBox x:Name="FoundUrlTextBox"
-                                Text=""
-                                IsReadOnly="True"
-                                BorderThickness="0"
-                                Background="Transparent"
-                                Foreground="#1976D2"
-                                Padding="5,0,0,0"
-                                Cursor="Hand"/>
-                    </StackPanel>
-                </Border>
-
-
-                <!-- Row 6: Template Sentences -->
-                <ScrollViewer Grid.Row="5" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10">
-                    <ItemsControl x:Name="TemplatesRepeater">
+            <!-- Row 2: Tags Panel -->
+            <Border Grid.Row="1" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Background="#FFFFFF">
+                <StackPanel>
+                    <ItemsControl x:Name="TagsRepeater">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="#BDBDBD" BorderThickness="1" Background="#F5F5F5" Padding="5" Margin="0,0,0,10">
-                                    <Grid VerticalAlignment="Center">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-
-                                        <!-- Reset Button -->
-                                        <Button Grid.Column="0"
-                                            Click="ResetTemplateButton_Click"
-                                            Tag="{Binding}"
-                                            Background="#FFEBEE"
-                                            Foreground="#C62828"
-                                            BorderBrush="#FFCDD2"
-                                            BorderThickness="1"
-                                            Padding="4,4"
-                                            FontWeight="Normal"
-                                            FontSize="14"
-                                            Margin="0,0,8,0"
-                                            ToolTip="Reset">
-                                            <Button.Content>
-                                                <Image Source="pack://application:,,,/reset_single.png"
-                                                Width="16" Height="16" Stretch="Uniform"/>
-                                            </Button.Content>
-                                        </Button>
-
-                                        <!-- Editable TextBox -->
-                                        <TextBox Grid.Column="1"
-                                            Text="{Binding FormattedText, Mode=TwoWay}"
-                                            TextWrapping="Wrap"
-                                            Background="White"
-                                            Foreground="#222"
-                                            BorderBrush="#E0E0E0"
-                                            BorderThickness="1"
-                                            Padding="8,4"
-                                            FontSize="15"
-                                            VerticalAlignment="Center"/>
-
-                                        <!-- Copy Button -->
-                                        <Button Grid.Column="2"
-                                            Click="CopyTemplateButton_Click"
-                                            Tag="{Binding}"
-                                            Background="#E3F2FD"
-                                            Foreground="#1976D2"
-                                            BorderBrush="#90CAF9"
-                                            BorderThickness="1"
-                                            Padding="4,4"
-                                            FontWeight="Normal"
-                                            FontSize="14"
-                                            Margin="8,0,0,0"
-                                            ToolTip="Copy">
-                                            <Button.Content>
-                                                <Image Source="pack://application:,,,/copy_button.png"
-                                                Width="16" Height="16" Stretch="Uniform"/>
-                                            </Button.Content>
-                                        </Button>
-                                    </Grid>
+                                <Border BorderBrush="#BDBDBD" BorderThickness="1" Padding="5" Margin="2" Background="#E0E0E0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}" Foreground="#333" FontWeight="Normal"
+                                            MouseEnter="TagTextBlock_MouseEnter" MouseLeftButtonDown="TagTextBlock_Click"/>
+                                    </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
+                </StackPanel>
+            </Border>
 
-                <!-- Row 7: Status Bar -->
-                <TextBlock Grid.Row="6" x:Name="StatusTextBlock" Text="Ready" HorizontalAlignment="Left" Foreground="#757575" Margin="0,10,0,0"/>            </Grid>
-        </StackPanel>
-    </Grid>
+            <!-- Row 3: Add Template Sentence Button and Argument TextBox -->
+            <Grid Grid.Row="2" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Add Blank Button -->
+                <Button x:Name="AddBlankButton" Grid.Column="0" Content="Add Blank" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                    Click="AddTemplateSentenceButton_Click" Background="#2196F3" Foreground="#FFFFFF" Padding="2,2" />
+
+                <!-- Arguments Field as a child grid -->
+                <Grid x:Name="ArgumentsPanel" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Bottom" HorizontalAlignment="Left">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Labels -->
+                        <RowDefinition Height="Auto"/> <!-- TextBoxes -->
+                    </Grid.RowDefinitions>
+                    <!-- Dynamically add labels to row 0, textboxes to row 1 in code-behind -->
+                </Grid>
+            </Grid>
+
+            <!-- Row 4: Monitor address -->
+            <Border Grid.Row="3" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Background="#F5F5F5" Padding="5">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" MouseLeftButtonDown="MonitorAddressPanel_MouseLeftButtonDown">
+                    <!-- Icon -->
+                    <Image Source="pack://application:,,,/monitor_icon.png" Width="16" Height="16" Margin="0,0,5,0" />
+                    <!-- Readonly TextBox -->
+                    <TextBox x:Name="MonitorUrlTextBox"
+                            Text=""
+                            IsReadOnly="True"
+                            BorderThickness="0"
+                            Background="Transparent"
+                            Foreground="#1976D2"
+                            Padding="5,0,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Row 5: Found address -->
+            <Border Grid.Row="4" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Background="#F5F5F5" Padding="5">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" MouseLeftButtonDown="FoundAddressPanel_MouseLeftButtonDown">
+                    <!-- Icon -->
+                    <Image Source="pack://application:,,,/found_icon.png" Width="16" Height="16" Margin="0,0,5,0" />
+                    <!-- Readonly TextBox -->
+                    <TextBox x:Name="FoundUrlTextBox"
+                            Text=""
+                            IsReadOnly="True"
+                            BorderThickness="0"
+                            Background="Transparent"
+                            Foreground="#1976D2"
+                            Padding="5,0,0,0"/>
+                </StackPanel>
+            </Border>
+
+
+            <!-- Row 6: Template Sentences -->
+            <ScrollViewer Grid.Row="5" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10">
+                <ItemsControl x:Name="TemplatesRepeater">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#BDBDBD" BorderThickness="1" Background="#F5F5F5" Padding="5" Margin="0,0,0,10">
+                                <Grid VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Reset Button -->
+                                    <Button Grid.Column="0"
+                                        Click="ResetTemplateButton_Click"
+                                        Tag="{Binding}"
+                                        Background="#FFEBEE"
+                                        Foreground="#C62828"
+                                        BorderBrush="#FFCDD2"
+                                        BorderThickness="1"
+                                        Padding="4,4"
+                                        FontWeight="Normal"
+                                        FontSize="14"
+                                        Margin="0,0,8,0"
+                                        ToolTip="Reset">
+                                        <Button.Content>
+                                            <Image Source="pack://application:,,,/reset_single.png"
+                                            Width="16" Height="16" Stretch="Uniform"/>
+                                        </Button.Content>
+                                    </Button>
+
+                                    <!-- Editable TextBox -->
+                                    <TextBox Grid.Column="1"
+                                        Text="{Binding FormattedText, Mode=TwoWay}"
+                                        TextWrapping="Wrap"
+                                        Background="White"
+                                        Foreground="#222"
+                                        BorderBrush="#E0E0E0"
+                                        BorderThickness="1"
+                                        Padding="8,4"
+                                        FontSize="15"
+                                        VerticalAlignment="Center"/>
+
+                                    <!-- Copy Button -->
+                                    <Button Grid.Column="2"
+                                        Click="CopyTemplateButton_Click"
+                                        Tag="{Binding}"
+                                        Background="#E3F2FD"
+                                        Foreground="#1976D2"
+                                        BorderBrush="#90CAF9"
+                                        BorderThickness="1"
+                                        Padding="4,4"
+                                        FontWeight="Normal"
+                                        FontSize="14"
+                                        Margin="8,0,0,0"
+                                        ToolTip="Copy">
+                                        <Button.Content>
+                                            <Image Source="pack://application:,,,/copy_button.png"
+                                            Width="16" Height="16" Stretch="Uniform"/>
+                                        </Button.Content>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+        </Grid>
+    </DockPanel>
 </Window>
