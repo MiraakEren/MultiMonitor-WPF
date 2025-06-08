@@ -17,22 +17,32 @@
   <ItemGroup>
     <None Remove="bell.wav" />
     <None Remove="copy_button.png" />
+    <None Remove="found_icon.png" />
     <None Remove="icon.ico" />
+    <None Remove="monitor_icon.png" />
     <None Remove="reset_single.png" />
     <None Remove="running_icon.ico" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="bell.wav" />
+    <Content Include="bell.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="copy_button.png">
+    <Content Include="copy_button.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Resource>
+    </Content>
     <Content Include="icon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Resource Include="found_icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="monitor_icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="reset_single.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Resource>

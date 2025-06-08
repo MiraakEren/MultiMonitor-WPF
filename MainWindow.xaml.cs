@@ -13,8 +13,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Interop;
-using Hardcodet.Wpf.TaskbarNotification;  
-
+using Hardcodet.Wpf.TaskbarNotification;
+using System.Windows.Navigation;
+using System.Runtime.CompilerServices;
 
 namespace MultiMonitor
 {
@@ -32,12 +33,47 @@ namespace MultiMonitor
         // Add a field for the tray icon
         private TaskbarIcon? _trayIcon;
 
+        private string _monitorUrl = string.Empty;
+        private string _foundUrl = string.Empty;
+
+        public string MonitorUrl
+        {
+            get => _monitorUrl;
+            set
+            {
+                _monitorUrl = value;
+                Debug.WriteLine($"MonitorUrl updated to: {_monitorUrl}");
+                OnPropertyChanged();
+            }
+        }
+
+        public string FoundUrl
+        {
+            get => _foundUrl;
+            set
+            {
+                _foundUrl = value;
+                Debug.WriteLine($"FoundUrl updated to: {_foundUrl}");
+                OnPropertyChanged();
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
         public MainWindow()
         {
             InitializeComponent();
 
             Title = "MultiMonitor";
-            DataContext = this;
+            DataContext = this; // Set the DataContext for binding
+
+            MonitorUrl = "Not Monitoring";
+            FoundUrl = "https://example.com/";
 
             // Initialize App Data Folders
             _scriptsDirectory = Path.Combine(
@@ -99,6 +135,8 @@ namespace MultiMonitor
                 await RunScriptWithPreviewAsync(); // Only reset the UI and run the preview
                 UpdateStatus("Reset to preview state");
             }
+            MonitorUrlTextBox.Text = "Not Monitoring"; // Reset monitor URL
+            FoundUrlTextBox.Text = "";
         }
 
         private async Task RunScriptWithPreviewAsync()
@@ -218,6 +256,9 @@ namespace MultiMonitor
                 Debug.WriteLine($"Exception: {ex}");
             }
         }
+        
+        private TextBox? _argumentTextBox;
+
         private void ProcessPreviewOutput(string output)
         {
             try
@@ -233,58 +274,117 @@ namespace MultiMonitor
                         _currentScript.DisplayName = displayNameProp.GetString() ?? _currentScript.DisplayName;
                     }
                 }
-
-                // Process tags
-                if (root.TryGetProperty("tags", out var tagsProp) && tagsProp.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var tagElement in tagsProp.EnumerateArray())
-                    {
-                        var tag = new ScriptTag
-                        {
-                            Name = tagElement.TryGetProperty("name", out var nameProp) ?
-                                nameProp.GetString() ?? string.Empty : string.Empty,
-                            Detail = tagElement.TryGetProperty("detail", out var detailProp) ?
-                                detailProp.GetString() ?? string.Empty : string.Empty,
-                            Tip = tagElement.TryGetProperty("tip", out var tipProp) ?
-                                tipProp.GetString() ?? string.Empty : string.Empty
-                        };
-
-                        // If detail is empty, use the name as detail
-                        if (string.IsNullOrEmpty(tag.Detail))
-                        {
-                            tag.Detail = tag.Name;
-                        }
-
-                        _currentTags.Add(tag);
-                    }
-                }
-
-                // Process template sentences
-                if (root.TryGetProperty("template_sentences", out var sentencesProp) && sentencesProp.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var sentence in sentencesProp.EnumerateArray())
-                    {
-                        string templateText = sentence.GetString() ?? string.Empty;
-
-                        var templateSentence = new TemplateSentence
-                        {
-                            OriginalTemplate = templateText,
-                            FormattedText = templateText
-                        };
-
-                        _currentTemplates.Add(templateSentence);
-                    }
-                }
-
-
+                
                 // Refresh the dropdown menu to reflect the updated display_name
                 RefreshScriptsComboBox();
+
+                if (root.TryGetProperty("script_type", out var scriptTypeProp))
+                {
+                    if (_currentScript != null)
+                    {
+                        if (scriptTypeProp.ValueKind == JsonValueKind.String)
+                        {
+                            if (scriptTypeProp.GetString() == "static")
+                            {
+
+                            }
+                            else if (scriptTypeProp.GetString() == "stream")
+                            {
+                                _currentScript.DisplayName += " (Stream)";
+                                AddArgumentTextBox();
+                            }
+
+                            else if (scriptTypeProp.ValueKind == JsonValueKind.Number)
+                            {
+                                _currentScript.DisplayName += $" (Type {scriptTypeProp.GetInt32()})";
+                            }
+                        }
+                    }
+
+                    // Process tags
+                    if (root.TryGetProperty("tags", out var tagsProp) && tagsProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var tagElement in tagsProp.EnumerateArray())
+                        {
+                            var tag = new ScriptTag
+                            {
+                                Name = tagElement.TryGetProperty("name", out var nameProp) ?
+                                    nameProp.GetString() ?? string.Empty : string.Empty,
+                                Detail = tagElement.TryGetProperty("detail", out var detailProp) ?
+                                    detailProp.GetString() ?? string.Empty : string.Empty,
+                                Tip = tagElement.TryGetProperty("tip", out var tipProp) ?
+                                    tipProp.GetString() ?? string.Empty : string.Empty
+                            };
+
+                            // If detail is empty, use the name as detail
+                            if (string.IsNullOrEmpty(tag.Detail))
+                            {
+                                tag.Detail = tag.Name;
+                            }
+
+                            _currentTags.Add(tag);
+                        }
+                    }
+
+                    // Process template sentences
+                    if (root.TryGetProperty("template_sentences", out var sentencesProp) && sentencesProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var sentence in sentencesProp.EnumerateArray())
+                        {
+                            string templateText = sentence.GetString() ?? string.Empty;
+
+                            var templateSentence = new TemplateSentence
+                            {
+                                OriginalTemplate = templateText,
+                                FormattedText = templateText
+                            };
+
+                            _currentTemplates.Add(templateSentence);
+                        }
+                    }
+
+                    if (root.TryGetProperty("monitor", out var monitorProp) && monitorProp.ValueKind == JsonValueKind.Array)
+                    {
+                        var monitorUrls = monitorProp.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrEmpty(x));
+                        string monitorUrl = monitorUrls.FirstOrDefault() ?? "No Monitor URL Available";
+                        MonitorUrlTextBox.Text = monitorUrl;
+                        Debug.WriteLine($"MonitorUrl set to: {monitorUrl}");
+                    }
+                }
             }
             catch (JsonException ex)
             {
                 UpdateStatus($"Error parsing JSON: {ex.Message}");
             }
         }
+
+        private void AddArgumentTextBox()
+        {
+            if (ArgumentTextBox != null)
+            {
+                ArgumentTextBox.IsEnabled = true; // Enable the TextBox
+                ArgumentTextBox.Focus(); // Set focus to the TextBox
+            }
+        }
+
+        private void ArgumentTextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (ArgumentTextBox.Text == "Enter arguments here...")
+            {
+                ArgumentTextBox.Text = string.Empty;
+                ArgumentTextBox.Foreground = Brushes.Black; // Reset text color
+            }
+        }
+
+        private void ArgumentTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(ArgumentTextBox.Text))
+            {
+                ArgumentTextBox.Text = "Enter arguments here...";
+                ArgumentTextBox.Foreground = Brushes.Gray; // Restore placeholder color
+            }
+        }
+        
 
         private void RefreshScriptsComboBox()
         {
@@ -396,7 +496,7 @@ namespace MultiMonitor
             if (sender is Button button && button.Tag is TemplateSentence template)
             {
                 Clipboard.SetText(template.FormattedText);
-                UpdateStatus("Template copied to clipboard");
+                UpdateStatus("Copied to clipboard");
             }
         }
 
@@ -405,7 +505,7 @@ namespace MultiMonitor
             if (sender is Button button && button.Tag is TemplateSentence template)
             {
                 template.FormattedText = template.OriginalTemplate;
-                UpdateStatus("Template reset to original");
+                UpdateStatus("Reset to template");
             }
         }
 
@@ -583,167 +683,179 @@ namespace MultiMonitor
         }
 
         private async Task RunScriptAsync()
-{
-    if (_currentScript == null) return;
-
-    // If a process is already running, stop it
-    if (_runningProcess != null)
-    {
-        try
         {
-            if (!_runningProcess.HasExited)
+            if (_currentScript == null) return;
+
+            // If a process is already running, stop it
+            if (_runningProcess != null)
             {
-                _runningProcess.Kill();
-                await _runningProcess.WaitForExitAsync();
+                try
+                {
+                    if (!_runningProcess.HasExited)
+                    {
+                        _runningProcess.Kill();
+                        await _runningProcess.WaitForExitAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    UpdateStatus($"Error stopping process: {ex.Message}");
+                }
+                finally
+                {
+                    CleanupRunningProcess();
+                }
+
+                RunButton.Content = "Run";
+                Title = "MultiMonitor"; // Reset the window title
+                if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
+                UpdateStatus("Script stopped");
+                return;
             }
-        }
-        catch (Exception ex)
-        {
-            UpdateStatus($"Error stopping process: {ex.Message}");
-        }
-        finally
-        {
-            CleanupRunningProcess();
-        }
 
-        RunButton.Content = "Run";
-        UpdateStatus("Script stopped");
-        return;
-    }
+            UpdateStatus($"Running {_currentScript.DisplayName}...");
+            RunButton.Content = "Stop";
 
-    UpdateStatus($"Running {_currentScript.DisplayName}...");
-    RunButton.Content = "Stop";
+            // Update the window title and tray tooltip to indicate the script is running
+            Title = $"MultiMonitor - {_currentScript.DisplayName} - Running";
+            if (_trayIcon != null) _trayIcon.ToolTipText = $"MultiMonitor - {_currentScript.DisplayName} - Running";
 
-    try
-    {
-        // Find Python executable
-        var currentDir = AppDomain.CurrentDomain.BaseDirectory;
-        string pythonExe = null;
-        
-        var possiblePaths = new[]
-        {
-            Path.Combine(Directory.GetParent(currentDir)?.Parent?.Parent?.Parent?.FullName ?? "", "python", "python.exe"),
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "python", "python.exe"),
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "python", "python.exe")
-        };
-        
-        foreach (var path in possiblePaths)
-        {
-            if (File.Exists(path))
+            try
             {
-                pythonExe = path;
-                break;
-            }
-        }
-        
-        if (pythonExe == null)
-        {
-            UpdateStatus("Python executable not found. Please ensure python.exe is available in the python folder.");
-            RunButton.Content = "Run";
-            return;
-        }
+                // Find Python executable
+                var currentDir = AppDomain.CurrentDomain.BaseDirectory;
+                string pythonExe = null;
 
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = pythonExe,
-            Arguments = $"-u \"{_currentScript.FilePath}\"", // Remove the template file argument for now
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-            // Add timeout environment variable
-            EnvironmentVariables = 
-            {
-                ["PYTHONPATH"] = Path.GetDirectoryName(pythonExe) ?? "",
-                ["PYTHONHOME"] = Path.GetDirectoryName(pythonExe) ?? "",
-                ["PYTHONUNBUFFERED"] = "1" // Ensure immediate output
-            }
-        };
+                var possiblePaths = new[]
+                {
+                    Path.Combine(Directory.GetParent(currentDir)?.Parent?.Parent?.Parent?.FullName ?? "", "python", "python.exe"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "python", "python.exe"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "python", "python.exe")
+                };
 
-        _runningProcess = new Process
-        {
-            StartInfo = startInfo,
-            EnableRaisingEvents = true
-        };
+                foreach (var path in possiblePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        pythonExe = path;
+                        break;
+                    }
+                }
 
-        // Handle real-time output
-        _runningProcess.OutputDataReceived += (sender, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-            {
+                if (pythonExe == null)
+                {
+                    UpdateStatus("Python executable not found. Please ensure python.exe is available in the python folder.");
+                    RunButton.Content = "Run";
+                    Title = "MultiMonitor"; // Reset the window title
+                    if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
+                    return;
+                }
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = pythonExe,
+                    Arguments = $"-u \"{_currentScript.FilePath}\"", // Remove the template file argument for now
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    // Add timeout environment variable
+                    EnvironmentVariables =
+                    {
+                        ["PYTHONPATH"] = Path.GetDirectoryName(pythonExe) ?? "",
+                        ["PYTHONHOME"] = Path.GetDirectoryName(pythonExe) ?? "",
+                        ["PYTHONUNBUFFERED"] = "1" // Ensure immediate output
+                    }
+                };
+
+                _runningProcess = new Process
+                {
+                    StartInfo = startInfo,
+                    EnableRaisingEvents = true
+                };
+
+                // Handle real-time output
+                _runningProcess.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            Debug.WriteLine($"Python Output: {e.Data}");
+
+                            if (IsJson(e.Data))
+                            {
+                                ProcessScriptOutput(e.Data);
+                            }
+                            else
+                            {
+                                UpdateStatus(e.Data);
+                            }
+                        });
+                    }
+                };
+
+                // Handle real-time error output
+                _runningProcess.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            Debug.WriteLine($"Python Error: {e.Data}");
+                            UpdateStatus($"Error: {e.Data}");
+                        });
+                    }
+                };
+
+                // Set up a timeout
+                var timeoutTask = Task.Delay(TimeSpan.FromMinutes(5)); // 5 minute timeout
+
+                _runningProcess.Start();
+                _runningProcess.BeginOutputReadLine();
+                _runningProcess.BeginErrorReadLine();
+
+                // Wait for either the process to exit or timeout
+                var processTask = Task.Run(() => _runningProcess.WaitForExit());
+                var completedTask = await Task.WhenAny(processTask, timeoutTask);
+
+                if (completedTask == timeoutTask)
+                {
+                    // Timeout occurred
+                    UpdateStatus("Script timeout - stopping process");
+                    try
+                    {
+                        _runningProcess.Kill();
+                        await _runningProcess.WaitForExitAsync();
+                    }
+                    catch { }
+                }
+
                 Dispatcher.Invoke(() =>
                 {
-                    Debug.WriteLine($"Python Output: {e.Data}");
-                    
-                    if (IsJson(e.Data))
+                    RunButton.Content = "Run";
+                    Title = "MultiMonitor"; // Reset the window title
+                    if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
+                    if (_runningProcess?.ExitCode == 0)
                     {
-                        ProcessScriptOutput(e.Data);
+                        UpdateStatus("Script completed successfully");
                     }
                     else
                     {
-                        UpdateStatus(e.Data);
+                        UpdateStatus($"Script terminated: {_runningProcess?.ExitCode}");
                     }
+                    CleanupRunningProcess();
                 });
             }
-        };
-
-        // Handle real-time error output
-        _runningProcess.ErrorDataReceived += (sender, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
+            catch (Exception ex)
             {
-                Dispatcher.Invoke(() =>
-                {
-                    Debug.WriteLine($"Python Error: {e.Data}");
-                    UpdateStatus($"Error: {e.Data}");
-                });
+                RunButton.Content = "Run";
+                Title = "MultiMonitor"; // Reset the window title
+                if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
+                UpdateStatus($"Error: {ex.Message}");
+                CleanupRunningProcess();
             }
-        };
-
-        // Set up a timeout
-        var timeoutTask = Task.Delay(TimeSpan.FromMinutes(5)); // 5 minute timeout
-
-        _runningProcess.Start();
-        _runningProcess.BeginOutputReadLine();
-        _runningProcess.BeginErrorReadLine();
-
-        // Wait for either the process to exit or timeout
-        var processTask = Task.Run(() => _runningProcess.WaitForExit());
-        var completedTask = await Task.WhenAny(processTask, timeoutTask);
-
-        if (completedTask == timeoutTask)
-        {
-            // Timeout occurred
-            UpdateStatus("Script timeout - stopping process");
-            try
-            {
-                _runningProcess.Kill();
-                await _runningProcess.WaitForExitAsync();
-            }
-            catch { }
         }
-
-        Dispatcher.Invoke(() =>
-        {
-            RunButton.Content = "Run";
-            if (_runningProcess?.ExitCode == 0)
-            {
-                UpdateStatus("Script completed successfully");
-            }
-            else
-            {
-                UpdateStatus($"Script completed with exit code: {_runningProcess?.ExitCode}");
-            }
-            CleanupRunningProcess();
-        });
-    }
-    catch (Exception ex)
-    {
-        RunButton.Content = "Run";
-        UpdateStatus($"Error: {ex.Message}");
-        CleanupRunningProcess();
-    }
-}
 
         private void CleanupRunningProcess()
         {
@@ -760,65 +872,112 @@ namespace MultiMonitor
         {
             try
             {
-                Debug.WriteLine($"Raw JSON Output: {output}"); // Log the raw JSON output
+                Debug.WriteLine($"Raw JSON Input: {output}"); // Log the raw JSON input
 
-                using JsonDocument doc = JsonDocument.Parse(output);
-                var root = doc.RootElement;
+                // Split the output into individual JSON objects
+                var jsonObjects = output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
 
-                // Get the tag values
-                Dictionary<string, string> tagValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var property in root.EnumerateObject())
+                foreach (var jsonObject in jsonObjects)
                 {
-                    tagValues[property.Name] = property.Value.ValueKind switch
+                    if (IsJson(jsonObject))
                     {
-                        JsonValueKind.String => property.Value.GetString() ?? string.Empty,
-                        JsonValueKind.Number => property.Value.GetRawText(),
-                        JsonValueKind.True => "true",
-                        JsonValueKind.False => "false",
-                        JsonValueKind.Null => string.Empty,
-                        _ => property.Value.ToString()
-                    };
-                }
+                        using JsonDocument doc = JsonDocument.Parse(jsonObject);
+                        var root = doc.RootElement;
 
-                // Process and update the template sentences
-                foreach (var template in _currentTemplates)
-                {
-                    string text = template.FormattedText; // Use the current user-modified template
+                        // Process output_sentences
+                        if (root.TryGetProperty("output_sentences", out var outputSentencesProp) && outputSentencesProp.ValueKind == JsonValueKind.Array)
+                        {
+                            _currentTemplates.Clear(); // Clear existing templates
+                            foreach (var sentence in outputSentencesProp.EnumerateArray())
+                            {
+                                string outputText = sentence.GetString() ?? string.Empty;
 
-                    // Tokenize and replace placeholders
-                    text = System.Text.RegularExpressions.Regex.Replace(text, "\\{(\\w+)\\}", match =>
-                    {
-                        string key = match.Groups[1].Value;
-                        return tagValues.TryGetValue(key, out var value) ? value : match.Value; // Replace or keep the placeholder
-                    });
+                                var outputSentence = new TemplateSentence
+                                {
+                                    OriginalTemplate = outputText,
+                                    FormattedText = outputText
+                                };
 
-                    // Update the formatted text
-                    Dispatcher.Invoke(() =>
-                    {
-                        template.FormattedText = text;
-                        Debug.WriteLine($"Updated FormattedText: {template.FormattedText}"); // Log the updated text
-                    });
-                }
+                                _currentTemplates.Add(outputSentence);
+                            }
 
-                // Play the bell sound and restore the window
-                Dispatcher.Invoke(() =>
-                {
-                    var assembly = Assembly.GetExecutingAssembly();
-                    using Stream stream = assembly.GetManifestResourceStream("MultiMonitor.bell.wav");
-                    if (stream != null)
-                    {
-                        using var player = new SoundPlayer(stream);
-                        player.Play();
+                            UpdateStatus("Updated.");
+                        }
+
+                        if (root.TryGetProperty("found", out var foundProp) && foundProp.ValueKind == JsonValueKind.String)
+                        {
+                            FoundUrl = foundProp.GetString() ?? "No Found URL Available";
+                            FoundUrlTextBox.Text = FoundUrl;
+                            Debug.WriteLine($"FoundUrl set to: {FoundUrl}");
+                        }
+
+                        // Process template_sentences (if applicable)
+                        if (root.TryGetProperty("template_sentences", out var templateSentencesProp) && templateSentencesProp.ValueKind == JsonValueKind.Array)
+                        {
+                            _currentTemplates.Clear(); // Clear existing templates
+                            foreach (var sentence in templateSentencesProp.EnumerateArray())
+                            {
+                                string templateText = sentence.GetString() ?? string.Empty;
+
+                                var templateSentence = new TemplateSentence
+                                {
+                                    OriginalTemplate = templateText,
+                                    FormattedText = templateText
+                                };
+
+                                _currentTemplates.Add(templateSentence);
+                            }
+
+                            UpdateStatus("Template sentences updated.");
+                        }
+
+                        // Process other properties (e.g., tags)
+                        Dictionary<string, string> tagValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var property in root.EnumerateObject())
+                        {
+                            tagValues[property.Name] = property.Value.ValueKind switch
+                            {
+                                JsonValueKind.String => property.Value.GetString() ?? string.Empty,
+                                JsonValueKind.Number => property.Value.GetRawText(),
+                                JsonValueKind.True => "true",
+                                JsonValueKind.False => "false",
+                                JsonValueKind.Null => string.Empty,
+                                _ => property.Value.ToString()
+                            };
+                        }
+
+                        // Update template sentences with tag values
+                        foreach (var template in _currentTemplates)
+                        {
+                            string text = template.FormattedText; // Use the current user-modified template
+
+                            // Tokenize and replace placeholders
+                            text = System.Text.RegularExpressions.Regex.Replace(text, "\\{(\\w+)\\}", match =>
+                            {
+                                string key = match.Groups[1].Value;
+                                return tagValues.TryGetValue(key, out var value) ? value : match.Value; // Replace or keep the placeholder
+                            });
+
+                            // Update the formatted text
+                            Dispatcher.Invoke(() =>
+                            {
+                                template.FormattedText = text;
+                                Debug.WriteLine($"Updated FormattedText: {template.FormattedText}"); // Log the updated text
+
+                            });
+                        }
+                        try
+                        {
+                            var soundFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bell.wav");
+                            var soundPlayer = new System.Media.SoundPlayer(soundFilePath);
+                            soundPlayer.Play();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error playing sound: {ex.Message}");
+                        }
                     }
-
-                    // Restore the window if it is hidden or minimized
-                    if (WindowState == WindowState.Minimized || !IsVisible)
-                    {
-                        Show();
-                        WindowState = WindowState.Normal;
-                        Activate();
-                    }
-                });
+                }
             }
             catch (JsonException ex)
             {
@@ -906,6 +1065,22 @@ namespace MultiMonitor
             Show();
             WindowState = WindowState.Normal;
             Activate();
+        }
+
+        private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = e.Uri.AbsoluteUri,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"Error opening link: {ex.Message}");
+            }
         }
     }
 
