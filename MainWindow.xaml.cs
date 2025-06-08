@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -12,6 +12,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Interop;
+using Hardcodet.Wpf.TaskbarNotification;  
+
 
 namespace MultiMonitor
 {
@@ -23,6 +26,11 @@ namespace MultiMonitor
         private string _scriptsDirectory;
         private ScriptInfo? _currentScript;
         private Process? _runningProcess;
+        private HwndSource? _trayHwndSource;
+        private ContextMenu _trayMenu;
+
+        // Add a field for the tray icon
+        private TaskbarIcon? _trayIcon;
 
         public MainWindow()
         {
@@ -45,6 +53,43 @@ namespace MultiMonitor
             LoadAvailableScripts();
             TagsRepeater.ItemsSource = _currentTags;
             TemplatesRepeater.ItemsSource = _currentTemplates;
+
+            // Initialize tray icon and menu
+            InitializeTrayIcon();
+        }
+
+        // Initialize tray icon and menu
+        private void InitializeTrayIcon()
+        {
+            // Create the tray icon
+            _trayIcon = new TaskbarIcon
+            {
+                Icon = new System.Drawing.Icon("icon.ico"), // Ensure the file is in the Resources folder
+                ToolTipText = "MultiMonitor",
+                ContextMenu = new System.Windows.Controls.ContextMenu()
+            };
+
+            // Add menu items to the tray menu
+            var stopMenuItem = new MenuItem { Header = "Stop" };
+            stopMenuItem.Click += (s, e) => StopScriptFromTray();
+            var exitMenuItem = new MenuItem { Header = "Exit" };
+            exitMenuItem.Click += (s, e) => ExitApplication();
+            _trayIcon.ContextMenu.Items.Add(stopMenuItem);
+            _trayIcon.ContextMenu.Items.Add(exitMenuItem);
+
+            // Handle double-click to restore the window
+            _trayIcon.TrayMouseDoubleClick += (s, e) => RestoreWindow();
+        }
+
+        // Update tray icon based on script state
+        private void UpdateTrayIcon()
+        {
+            var iconUri = _runningProcess != null && !_runningProcess.HasExited
+                ? new Uri("pack://application:,,,/running_icon.ico")
+                : new Uri("pack://application:,,,/icon.ico");
+
+            // Load the icon as a BitmapFrame (if needed for display elsewhere)
+            var icon = BitmapFrame.Create(iconUri);            
         }
 
         private async void ResetButton_Click(object sender, RoutedEventArgs e)
@@ -230,6 +275,7 @@ namespace MultiMonitor
                         _currentTemplates.Add(templateSentence);
                     }
                 }
+
 
                 // Refresh the dropdown menu to reflect the updated display_name
                 RefreshScriptsComboBox();
@@ -754,7 +800,7 @@ namespace MultiMonitor
                     });
                 }
 
-                // Play the bell sound after updating the templates
+                // Play the bell sound and restore the window
                 Dispatcher.Invoke(() =>
                 {
                     var assembly = Assembly.GetExecutingAssembly();
@@ -763,6 +809,14 @@ namespace MultiMonitor
                     {
                         using var player = new SoundPlayer(stream);
                         player.Play();
+                    }
+
+                    // Restore the window if it is hidden or minimized
+                    if (WindowState == WindowState.Minimized || !IsVisible)
+                    {
+                        Show();
+                        WindowState = WindowState.Normal;
+                        Activate();
                     }
                 });
             }
@@ -813,6 +867,45 @@ namespace MultiMonitor
             {
                 textBlock.ToolTip = tag.Tip;
             }
+        }
+
+        // Override OnClosing to minimize to tray
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            if (_runningProcess != null && !_runningProcess.HasExited)
+            {
+                e.Cancel = true; // Cancel the close operation
+                Hide(); // Minimize to tray
+                _trayIcon?.ShowBalloonTip("MultiMonitor", "The app is minimized to the tray.", BalloonIcon.Info);
+            }
+            else
+            {
+                _trayIcon?.Dispose(); // Clean up tray icon
+            }
+        }
+
+        // Stop script from tray
+        private void StopScriptFromTray()
+        {
+            if (_runningProcess != null)
+            {
+                RunScriptAsync(); // Call the same method as the "Stop" button
+            }
+        }
+
+        // Exit application
+        private void ExitApplication()
+        {
+            _trayIcon?.Dispose();
+            Application.Current.Shutdown();
+        }
+
+        // Restore window from tray
+        private void RestoreWindow()
+        {
+            Show();
+            WindowState = WindowState.Normal;
+            Activate();
         }
     }
 
