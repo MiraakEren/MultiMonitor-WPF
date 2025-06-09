@@ -852,6 +852,8 @@ namespace MultiMonitor
                     Title = "MultiMonitor"; // Reset the window title
                     if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
                     ScriptsComboBox.IsEnabled = true;
+                    ResetButton.IsEnabled = true;
+                    ResetButton.Background = new SolidColorBrush(Color.FromRgb(229, 115, 115)); // #E57373
                     return;
                 }
 
@@ -950,11 +952,11 @@ namespace MultiMonitor
                 {
                     RunButton.Content = "Run";
                     Title = "MultiMonitor"; // Reset the window title
+                    ScriptsComboBox.IsEnabled = true;
                     ResetButton.IsEnabled = true;
                     ResetButton.Background = new SolidColorBrush(Color.FromRgb(229, 115, 115)); // #E57373
                     foreach (var tb in _argumentFields.Values)
                         tb.IsReadOnly = false;
-                    RunButton.Content = "Run";
                     if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
                     if (_runningProcess?.ExitCode == 0)
                     {
@@ -971,6 +973,9 @@ namespace MultiMonitor
             {
                 RunButton.Content = "Run";
                 Title = "MultiMonitor"; // Reset the window title
+                ScriptsComboBox.IsEnabled = true;
+                ResetButton.IsEnabled = true;
+                ResetButton.Background = new SolidColorBrush(Color.FromRgb(229, 115, 115)); // #E57373
                 if (_trayIcon != null) _trayIcon.ToolTipText = "MultiMonitor"; // Reset the tray tooltip
                 UpdateStatus($"Error: {ex.Message}");
                 CleanupRunningProcess();
