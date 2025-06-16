@@ -84,7 +84,7 @@
             <Border Grid.Row="3" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Background="#F5F5F5" Padding="5">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" MouseLeftButtonDown="MonitorAddressPanel_MouseLeftButtonDown">
                     <!-- Icon -->
-                    <Image Source="pack://application:,,,/monitor_icon.png" Width="16" Height="16" Margin="0,0,5,0" />
+                    <Image Source="pack://application:,,,/Images/monitor_icon.png" Width="16" Height="16" Margin="0,0,5,0" />
                     <!-- Readonly TextBox -->
                     <TextBox x:Name="MonitorUrlTextBox"
                             Text=""
@@ -100,7 +100,7 @@
             <Border Grid.Row="4" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Background="#F5F5F5" Padding="5">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" MouseLeftButtonDown="FoundAddressPanel_MouseLeftButtonDown">
                     <!-- Icon -->
-                    <Image Source="pack://application:,,,/found_icon.png" Width="16" Height="16" Margin="0,0,5,0" />
+                    <Image Source="pack://application:,,,/Images/found_icon.png" Width="16" Height="16" Margin="0,0,5,0" />
                     <!-- Readonly TextBox -->
                     <TextBox x:Name="FoundUrlTextBox"
                             Text=""
@@ -140,7 +140,7 @@
                                         Margin="0,0,8,0"
                                         ToolTip="Reset">
                                         <Button.Content>
-                                            <Image Source="pack://application:,,,/reset_single.png"
+                                            <Image Source="pack://application:,,,/Images/reset_single.png"
                                             Width="16" Height="16" Stretch="Uniform"/>
                                         </Button.Content>
                                     </Button>
@@ -171,7 +171,7 @@
                                         Margin="8,0,0,0"
                                         ToolTip="Copy">
                                         <Button.Content>
-                                            <Image Source="pack://application:,,,/copy_button.png"
+                                            <Image Source="pack://application:,,,/Images/copy_button.png"
                                             Width="16" Height="16" Stretch="Uniform"/>
                                         </Button.Content>
                                     </Button>

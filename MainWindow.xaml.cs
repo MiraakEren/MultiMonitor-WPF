@@ -25,6 +25,7 @@ namespace MultiMonitor
         private ObservableCollection<ScriptInfo> _availableScripts = new();
         private ObservableCollection<ScriptTag> _currentTags = new();
         private ObservableCollection<TemplateSentence> _currentTemplates = new();
+
         private string _scriptsDirectory;
         private ScriptInfo? _currentScript;
         private Process? _runningProcess;
@@ -44,6 +45,7 @@ namespace MultiMonitor
             {
                 _monitorUrl = value;
                 Debug.WriteLine($"MonitorUrl updated to: {_monitorUrl}");
+                Console.WriteLine($"MonitorUrl updated to: {_monitorUrl}");
                 OnPropertyChanged();
             }
         }
@@ -55,6 +57,7 @@ namespace MultiMonitor
             {
                 _foundUrl = value;
                 Debug.WriteLine($"FoundUrl updated to: {_foundUrl}");
+                Console.WriteLine($"FoundUrl updated to: {_foundUrl}");
                 OnPropertyChanged();
             }
         }
@@ -101,7 +104,7 @@ namespace MultiMonitor
             // Create the tray icon
             _trayIcon = new TaskbarIcon
             {
-                Icon = new System.Drawing.Icon("icon.ico"), // Ensure the file is in the Resources folder
+                Icon = new System.Drawing.Icon(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico")),
                 ToolTipText = "MultiMonitor",
                 ContextMenu = new System.Windows.Controls.ContextMenu()
             };
@@ -116,17 +119,6 @@ namespace MultiMonitor
 
             // Handle double-click to restore the window
             _trayIcon.TrayMouseDoubleClick += (s, e) => RestoreWindow();
-        }
-
-        // Update tray icon based on script state
-        private void UpdateTrayIcon()
-        {
-            var iconUri = _runningProcess != null && !_runningProcess.HasExited
-                ? new Uri("pack://application:,,,/running_icon.ico")
-                : new Uri("pack://application:,,,/icon.ico");
-
-            // Load the icon as a BitmapFrame (if needed for display elsewhere)
-            var icon = BitmapFrame.Create(iconUri);            
         }
 
         private async void ResetButton_Click(object sender, RoutedEventArgs e)
@@ -152,6 +144,7 @@ namespace MultiMonitor
 
             UpdateStatus($"Running {_currentScript.DisplayName} with preview...");
             Debug.WriteLine($"Starting script: {_currentScript.FilePath}");
+            Console.WriteLine($"Starting script: {_currentScript.FilePath}");
 
             try
             {
@@ -212,6 +205,7 @@ namespace MultiMonitor
                     {
                         outputBuilder.AppendLine(args.Data);
                         Debug.WriteLine($"[STDOUT] {args.Data}"); // Log to Visual Studio console
+                        Console.WriteLine($"[STDOUT] {args.Data}");
                     }
                 };
 
@@ -220,7 +214,8 @@ namespace MultiMonitor
                     if (!string.IsNullOrEmpty(args.Data))
                     {
                         errorBuilder.AppendLine(args.Data);
-                        Debug.WriteLine($"[STDERR] {args.Data}"); // Log errors to Visual Studio console
+                        Debug.WriteLine($"[STDERR] {args.Data}");// Log errors to Visual Studio console
+                        Console.WriteLine($"[STDERR] {args.Data}");
                     }
                 };
 
@@ -249,12 +244,14 @@ namespace MultiMonitor
                 {
                     UpdateStatus($"Error running script: Exit code {process.ExitCode}");
                     Debug.WriteLine($"Script exited with code {process.ExitCode}");
+                    Console.WriteLine($"Script exited with code {process.ExitCode}");
                 }
             }
             catch (Exception ex)
             {
                 UpdateStatus($"Error: {ex.Message}");
                 Debug.WriteLine($"Exception: {ex}");
+                Console.WriteLine($"Exception: {ex}");
             }
         }
         
@@ -410,6 +407,7 @@ namespace MultiMonitor
                         string monitorUrl = monitorUrls.FirstOrDefault() ?? "No Monitor URL Available";
                         MonitorUrlTextBox.Text = monitorUrl;
                         Debug.WriteLine($"MonitorUrl set to: {monitorUrl}");
+                        Console.WriteLine($"MonitorUrl set to: {monitorUrl}");
                     }
                 }
 
@@ -731,6 +729,7 @@ namespace MultiMonitor
                     if (!string.IsNullOrWhiteSpace(argValue) && argValue != kvp.Value.Tag?.ToString())
                     {
                         Debug.WriteLine($"Argument: --{argName} \"{argValue}\"");
+                        Console.WriteLine($"Argument: --{argName} \"{argValue}\"");
                     }
                     kvp.Value.IsReadOnly = true;
                 }
@@ -749,6 +748,7 @@ namespace MultiMonitor
         {
             StatusTextBlock.Text = $"[{DateTime.Now:HH:mm:ss}] {message}";
             Debug.WriteLine($"Status updated: {message}");
+            Console.WriteLine($"Status updated: {message}");
         }
 
         private void MonitorAddressPanel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -778,6 +778,7 @@ namespace MultiMonitor
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Failed to open URL: {ex.Message}");
+                    Console.WriteLine($"Failed to open URL: {ex.Message}");
                 }
             }
         }
@@ -899,6 +900,7 @@ namespace MultiMonitor
                         Dispatcher.Invoke(() =>
                         {
                             Debug.WriteLine($"Python Output: {e.Data}");
+                            Console.WriteLine($"Python Output: {e.Data}");
 
                             if (IsJson(e.Data))
                             {
@@ -920,34 +922,22 @@ namespace MultiMonitor
                         Dispatcher.Invoke(() =>
                         {
                             Debug.WriteLine($"Python Error: {e.Data}");
+                            Console.WriteLine($"Python Error: {e.Data}");
                             UpdateStatus($"Error: {e.Data}");
                         });
                     }
                 };
 
-                // Set up a timeout
-                var timeoutTask = Task.Delay(TimeSpan.FromMinutes(5)); // 5 minute timeout
-
                 _runningProcess.Start();
                 _runningProcess.BeginOutputReadLine();
                 _runningProcess.BeginErrorReadLine();
 
+                await _runningProcess.WaitForExitAsync();
+
                 // Wait for either the process to exit or timeout
                 var processTask = Task.Run(() => _runningProcess.WaitForExit());
-                var completedTask = await Task.WhenAny(processTask, timeoutTask);
 
-                if (completedTask == timeoutTask)
-                {
-                    // Timeout occurred
-                    UpdateStatus("Script timeout - stopping process");
-                    try
-                    {
-                        _runningProcess.Kill();
-                        await _runningProcess.WaitForExitAsync();
-                    }
-                    catch { }
-                }
-
+                
                 Dispatcher.Invoke(() =>
                 {
                     RunButton.Content = "Run";
@@ -998,6 +988,7 @@ namespace MultiMonitor
             try
             {
                 Debug.WriteLine($"Raw JSON Input: {output}"); // Log the raw JSON input
+                Console.WriteLine($"Raw JSON Input: {output}");
 
                 // Split the output into individual JSON objects
                 var jsonObjects = output.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1034,6 +1025,7 @@ namespace MultiMonitor
                             FoundUrl = foundProp.GetString() ?? "No Found URL Available";
                             FoundUrlTextBox.Text = FoundUrl;
                             Debug.WriteLine($"FoundUrl set to: {FoundUrl}");
+                            Console.WriteLine($"FoundUrl set to: {FoundUrl}");
                         }
 
                         // Process template_sentences (if applicable)
@@ -1087,7 +1079,8 @@ namespace MultiMonitor
                             Dispatcher.Invoke(() =>
                             {
                                 template.FormattedText = text;
-                                Debug.WriteLine($"Updated FormattedText: {template.FormattedText}"); // Log the updated text
+                                Debug.WriteLine($"Updated FormattedText: {template.FormattedText}");
+                                Console.WriteLine($"Updated FormattedText: {template.FormattedText}");
 
                             });
                         }
@@ -1096,6 +1089,7 @@ namespace MultiMonitor
                             var soundFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bell.wav");
                             var soundPlayer = new System.Media.SoundPlayer(soundFilePath);
                             soundPlayer.Play();
+                            RestoreWindow();
                         }
                         catch (Exception ex)
                         {
@@ -1107,12 +1101,14 @@ namespace MultiMonitor
             catch (JsonException ex)
             {
                 UpdateStatus($"Error parsing JSON: {ex.Message}");
-                Debug.WriteLine($"JSON Parsing Error: {ex}"); // Log the exception details
+                Debug.WriteLine($"JSON Parsing Error: {ex}");
+                Console.WriteLine($"JSON Parsing Error: {ex}");
             }
             catch (InvalidOperationException ex)
             {
                 UpdateStatus($"Error processing JSON: {ex.Message}");
                 Debug.WriteLine($"JSON Processing Error: {ex}"); // Log the exception details
+                Console.WriteLine($"JSON Processing Error: {ex}");
             }
         }
 
