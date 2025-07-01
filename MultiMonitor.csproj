@@ -14,7 +14,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
-    <Version>1.1.1</Version>
+    <Version>1.1.1.1</Version>
     <Authors>Miraç Eren</Authors>
     <Company>Miraç Eren</Company>
   </PropertyGroup>
