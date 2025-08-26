@@ -37,27 +37,6 @@
             </Grid>
 
             <!-- Row 2: Tags Panel -->
-            <Border Grid.Row="1" Margin="0,0,0,10" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Background="#FFFFFF">
-                <StackPanel>
-                    <ItemsControl x:Name="TagsRepeater">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="#BDBDBD" BorderThickness="1" Padding="5" Margin="2" Background="#E0E0E0">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Name}" Foreground="#333" FontWeight="Normal"
-                                            MouseEnter="TagTextBlock_MouseEnter" MouseLeftButtonDown="TagTextBlock_Click"/>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
 
             <!-- Row 3: Add Template Sentence Button and Argument TextBox -->
             <Grid Grid.Row="2" Margin="0,0,0,10">
@@ -67,8 +46,6 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Add Blank Button -->
-                <Button x:Name="AddBlankButton" Grid.Column="0" Content="Add Blank" HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                    Click="AddTemplateSentenceButton_Click" Background="#2196F3" Foreground="#FFFFFF" Padding="2,2" />
 
                 <!-- Arguments Field as a child grid -->
                 <Grid x:Name="ArgumentsPanel" Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Bottom" HorizontalAlignment="Left">

@@ -91,7 +91,6 @@ namespace MultiMonitor
 
             // Initialize UI
             LoadAvailableScripts();
-            TagsRepeater.ItemsSource = _currentTags;
             TemplatesRepeater.ItemsSource = _currentTemplates;
 
             // Initialize tray icon and menu
@@ -405,7 +404,15 @@ namespace MultiMonitor
                     {
                         var monitorUrls = monitorProp.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrEmpty(x));
                         string monitorUrl = monitorUrls.FirstOrDefault() ?? "No Monitor URL Available";
-                        MonitorUrlTextBox.Text = monitorUrl;
+                        const int maxMonitorUrlLength = 50;
+                        if (monitorUrl.Length > maxMonitorUrlLength)
+                        {
+                            MonitorUrlTextBox.Text = monitorUrl.Substring(0, maxMonitorUrlLength - 3) + "...";
+                        }
+                        else
+                        {
+                            MonitorUrlTextBox.Text = monitorUrl;
+                        }
                         Debug.WriteLine($"MonitorUrl set to: {monitorUrl}");
                         Console.WriteLine($"MonitorUrl set to: {monitorUrl}");
                     }
@@ -1023,7 +1030,15 @@ namespace MultiMonitor
                         if (root.TryGetProperty("found", out var foundProp) && foundProp.ValueKind == JsonValueKind.String)
                         {
                             FoundUrl = foundProp.GetString() ?? "No Found URL Available";
-                            FoundUrlTextBox.Text = FoundUrl;
+                            const int maxFoundUrlLength = 50;
+                            if (FoundUrl.Length > maxFoundUrlLength)
+                            {
+                                FoundUrlTextBox.Text = FoundUrl.Substring(0, maxFoundUrlLength - 3) + "...";
+                            }
+                            else
+                            {
+                                FoundUrlTextBox.Text = FoundUrl;
+                            }
                             Debug.WriteLine($"FoundUrl set to: {FoundUrl}");
                             Console.WriteLine($"FoundUrl set to: {FoundUrl}");
                         }
